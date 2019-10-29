@@ -11,30 +11,13 @@ suppressMessages(library(reshape2))  # 1.4.2
 suppressMessages(library(readr))     # 1.3.1
 suppressMessages(library(lubridate)) # 1.7.4
 suppressMessages(library(tidyr))     # 0.8.3
-
-dummy_dir = "G:/RESEARCH/CBA/PRIVATE/Adrian/data_Touchscreen/test files r script/"
-dummy_wt = c(paste0("801-", c("blue","red","green","blue2","red2")),paste0("802-", c("blue","red","green","blue2","red2")),paste0("803-", c("blue","red","green","blue2")))
-dummy_ko = c(paste0("804-", c("blue","red","green","blue2","red2")),paste0("805-", c("blue","red","green","blue2","red2")))
-
-latest_file = function(machine = "work") {
-  if(tolower(machine) == "work") {
-    prefix = "C:/Users/Alo1/"
-  } else if(tolower(machine) == "mac") {
-    prefix = "/Users/adrianlo/"
-  } else { prefix = "C:/Users/Adrian/" }
-  
-  latest = list.files(path = paste0(prefix,"Dropbox/work/DNF/data_touchscreen/2019-06-fmr1fvb/"),
-                      pattern = ".RDS$") %>% tail(1)
-  dat = readRDS(paste0(prefix,"Dropbox/work/DNF/data_touchscreen/2019-06-fmr1fvb/",latest))
-  
-  return(list(data = c(dat$ml1$data, dat$ml2$data),
-              details = bind_rows(dat$ml1$details,dat$ml2$details),
-              df = bind_rows(dat$df1,dat$df2)))
-} # machine = c("home","work","mac")
+suppressMessages(library(purrr))     # 0.3.2
 
 se = function(x) sd(x, na.rm = T) / sqrt(length(x))
 
-format2essential = function(filesDir = dummy_dir, 
+`%not_in%` = negate(`%in%`)
+
+format2essential = function(filesDir = NULL, 
                             wt = NULL, het = NULL, ko = NULL, ki = NULL,
                             exclude_files = NULL, include_files = NULL, exclude_mice = NULL) {
   
@@ -232,26 +215,21 @@ format2dataframe = function(data = ml) {
   ))
 }
 
-extract_trialTime = function(data = ml, unit = "day") {} # in progress
-
-extract_accuracy = function(data = ml, unit = "day") {
-  details = data$details
-  df = data$df
+extract_accuracy = function(data = ml, unit = "day", exclude = NULL) {
+  ## unit = c("day","bin","both")
   
+  details = data$details %>% filter(animalID %not_in% exclude)
+  df = data$df
   n = nrow(details)
-  accuracy_df = tibble(animalID = character(n), genotype = character(n),
-                       protocol = character(n), day = numeric(n),
+  accuracy_df = tibble(fileName = character(n),
                        nTrial_n = numeric(n), nTrial_correct = numeric(n), nTrial_perc = numeric(n),
                        tTrial_n = numeric(n), cTrial_n = numeric(n), cTrial_perc = numeric(n), 
-                       perseveration_index = numeric(n),
-                       file = character(n), date = character(n))
+                       perseveration_index = numeric(n))
   
-  # ii = 1
-  for(ii in 1:nrow(details)) {
-    print(paste0("file ", ii, " / ", nrow(details),": ",details$fileName[ii]))
+  for(ii in 1:n) {
+    print(paste0("Accuracy - file ", ii, " / ", n,": ",details$fileName[ii]))
     
-    accuracy_df$file[ii] = details$fileName[ii]
-    accuracy_df$day[ii] = details$day[ii]
+    accuracy_df$fileName[ii] = details$fileName[ii]
     accuracy_df[ii,c("nTrial_n","nTrial_correct","nTrial_perc")] =
       df %>% filter(fileName == details$fileName[ii]) %>%
       filter(trialType == "Trial") %>% filter(!is.na(outcome)) %>%
@@ -265,150 +243,27 @@ extract_accuracy = function(data = ml, unit = "day") {
       filter(!is.na(outcome)) %>%
       summarise(cTrial_n = length(outcome)) %>%
       mutate(cTrial_perc = (cTrial_n / tTrial) * 100) %>% as.matrix()
-    accuracy_df$animalID[ii] = details$animalID[ii]
-    accuracy_df$genotype[ii] = details$genotype[ii]
-    accuracy_df$protocol[ii] = details$protocol[ii]
-    accuracy_df$date[ii] = as.character(details$date[ii])
   }
-  
-  accuracy_df %<>% 
-    mutate(perseveration_index = (tTrial_n-nTrial_n) / (nTrial_n-nTrial_correct)) %>%
-    select(animalID,genotype,protocol,day,
-           tTrial_n,
-           nTrial_n,nTrial_correct,nTrial_perc,
-           cTrial_n,cTrial_perc,perseveration_index,
-           file,date)
+  accuracy_df %<>% mutate(perseveration_index = (tTrial_n-nTrial_n) / (nTrial_n-nTrial_correct))
   return(accuracy_df)
-} # unit = c("day","bin","both")
+}
 
-extract_sequence = function(data = ml, type = "Correction Trial", unit = "day") {
-  details = data$details
-  df = data$df
+extract_activity = function(data = ml, option = "all", unit = "day", exclude = NULL) {
+  ## option = c("all","trial","iti")
+  ## unit = c("day","bin")
   
-  sequence_list = setNames(replicate(nrow(details), tibble()), details$fileName)
-  sequence_df = tibble(fileName = character(nrow(details)), 
-                       trialType = rep(type, nrow(details)),
-                       nSeq = numeric(nrow(details)), 
-                       minSeq = numeric(nrow(details)), medSeq = numeric(nrow(details)), 
-                       aveSeq = numeric(nrow(details)), maxSeq = numeric(nrow(details)),
-                       sdSeq = numeric(nrow(details)), seSeq = numeric(nrow(details)))
-  
-  # ii = 1
-  for(ii in 1:nrow(details)) {
-    print(paste0("file ", ii, " / ", nrow(details)))
-    ssFile = filter(df, fileName == pull(details[ii, "fileName"]))
-    identifier = rle(as.character(ssFile$trialType)); identifier = tibble(values = identifier$values, lengths = identifier$lengths)
-    sequence_list[[ii]] = identifier %>% filter(values == type) %>% pull(lengths)
-    sequence_df[ii,] = 
-      identifier %>%
-      filter(values == type) %>%
-      summarise(fileName = details$fileName[ii],
-                trialType = type,
-                nSeq = n(),
-                minSeq = min(lengths),
-                medSeq = median(lengths),
-                aveSeq = mean(lengths),
-                maxSeq = max(lengths),
-                sdSeq = sd(lengths),
-                seSeq = se(lengths))
-  }
-  return(seqSummary = list(seqList = sequence_list,
-                           seqData = sequence_df))
-} # type = c("Trial","Correction Trial"); unit = c("day","bin")
-
-extract_latency = function(data = ml, unit = "day") {
-  details = data$details
+  details = data$details %>% filter(animalID %not_in% exclude)
   data = data$data
-  
-  # reports the latency to make a (in)correct response
-  latency_df = tibble(Animal_ID = rep("dummy", nrow(details)), Genotype = rep("dummy", nrow(details)), 
-                      Protocol = rep("dummy", nrow(details)), Day = numeric(nrow(details)),
-                      Correct_latency = numeric(nrow(details)), Incorrect_latency = numeric(nrow(details)), General_latency = numeric(nrow(details)))
-  
-  # ii = 1
-  for(ii in 1:nrow(details)) {
-    print(paste0("Response latency ", ii, "/", nrow(details), " files. Progress: ", round(ii / nrow(details)*100, 2), "%"))
-    
-    outcome =
-      data[[details$fileName[ii]]] %>%
-      select(Evnt_Time, Item_Name) %>%
-      filter(Item_Name %in% c("Correct", "Incorrect")) 
-    response_all =
-      data[[details$fileName[ii]]] %>%
-      select(Evnt_Time, Item_Name) %>% 
-      filter(Item_Name %in% c("Start Trial", "Start Correction Trial")) %>%
-      slice(1:nrow(outcome)) %>%
-      bind_cols(outcome) %>%
-      mutate(Response_Latency = Evnt_Time1 - Evnt_Time,
-             Item_Name = gsub("Start ", "", Item_Name))
-    response_c_ic =
-      response_all %>% 
-      group_by(Item_Name1) %>%
-      summarise(Response_Latency = mean(Response_Latency)) %>% pull()
-    latency_df$Animal_ID[ii] = pull(details[ii, "animalID"])
-    latency_df$Genotype[ii] = pull(details[ii, "genotype"])
-    latency_df$Protocol[ii] = ifelse(details[ii, "protocol"] %>% pull() %>% str_detect("reversal"), "Reversal", "Acquisition")
-    latency_df$Day[ii] = pull(details[ii, "day"])
-    latency_df[ii, c("Correct_latency", "Incorrect_latency")] = response_c_ic
-    latency_df[ii, "General_latency"] = mean(response_all$Response_Latency)
-  }
-  return(latency_df)
-} # unit = c("day","bin")
-
-extract_rewardCollectionError = function(data = ml, unit = "day") {
-  details = data$details
-  data = data$data
-  
-  # reports % entries during tone 5 s post-stimulus choice
-  prop2tray = tibble(Animal_ID = rep("dummy", nrow(details)), Genotype = rep("dummy", nrow(details)),
-                     Machine_ID = rep("dummy", nrow(details)), Session_ID = numeric(nrow(details)), 
-                     Protocol = rep("dummy", nrow(details)),
-                     propCorrect = numeric(nrow(details)), propIncorrect = numeric(nrow(details)),
-                     Day = numeric(nrow(details)))
-  
-  # ii = 1
-  for(ii in 1:nrow(details)) {
-    print(paste0("Reward collection error ", ii, "/", nrow(details), " files. Progress: ", round(ii / nrow(details)*100, 2), "%"))
-    
-    prop2tray$Animal_ID[ii] = pull(details[ii, "animalID"])
-    prop2tray$Genotype[ii] = pull(details[ii, "genotype"])
-    prop2tray$Machine_ID[ii] = pull(details[ii, "machineID"])
-    prop2tray$Session_ID[ii] = pull(details[ii, "sessionID"])
-    prop2tray$Protocol[ii] = ifelse(details[ii, "protocol"] %>% pull() %>% str_detect("reversal"), "Reversal", "Acquisition")
-    prop2tray[ii, c("propCorrect", "propIncorrect")] =
-      data[[details$fileName[ii]]] %>%
-      filter(Item_Name %in% c("Correct", "Incorrect", "Tray #1")) %>%
-      mutate(Evnt_Time2 = lead(Evnt_Time)) %>%
-      filter(Item_Name %in% c("Correct", "Incorrect")) %>%
-      mutate(within_5s = Evnt_Time2 - Evnt_Time <= 5) %>%
-      select(Evnt_Time, Item_Name, Evnt_Time2, within_5s) %>%
-      group_by(Item_Name) %>%
-      summarise(Prop2tray = mean(within_5s, na.rm = T)) %>% pull()
-    prop2tray$Day[ii] = details$day[ii] }
-  return(prop2tray) 
-} # unit = c("day","bin")
-
-extract_activity = function(data = ml, option = "all", unit = "day") {
-  details = data$details
-  data = data$data
-  
+  n = nrow(details)
   # reports the total number of back-front-total beam crossings
-  activity_df <- tibble(Animal_ID = rep("dummy", nrow(details)), Genotype = rep("dummy", nrow(details)),
-                        Machine_ID = rep("dummy", nrow(details)), Session_ID = numeric(nrow(details)), 
-                        Protocol = rep("dummy", nrow(details)), Day = numeric(nrow(details)),
-                        TrayEntries = numeric(nrow(details)), TrayTotalDuration = numeric(nrow(details)), TrayMeanDuration = numeric(nrow(details)),
-                        BackBeams = numeric(nrow(details)), FrontBeams = numeric(nrow(details)))
+  activity_df = tibble(fileName = character(n),
+                       trayEntries = numeric(n), trayTotalDuration = numeric(n), trayMeanDuration = numeric(n),
+                       backBeams = numeric(n), frontBeams = numeric(n))
   
-  # ii = 1
-  for(ii in 1:nrow(details)) {
-    print(paste0("Activity ", ii, "/", nrow(details), " files. Progress: ", round(ii / nrow(details)*100, 2), "%"))
+  for(ii in 1:n) {
+    print(paste0("Activity - file ", ii, " / ", n,": ",details$fileName[ii]))
     
-    activity_df$Animal_ID[ii] <- pull(details[ii, "animalID"])
-    activity_df$Genotype[ii] <- pull(details[ii, "genotype"])
-    activity_df$Machine_ID[ii] <- pull(details[ii, "machineID"])
-    activity_df$Session_ID[ii] <- pull(details[ii, "sessionID"])
-    activity_df$Protocol[ii] <- pull(details[ii, "protocol"])
-    activity_df$Day[ii] <- pull(details[ii, "day"])
+    activity_df$fileName[ii] = details$fileName[ii]
     
     if(option == "trial") {
       start = data[[details$fileName[ii]]] %>% 
@@ -431,10 +286,10 @@ extract_activity = function(data = ml, option = "all", unit = "day") {
         
         progress[jj, c("front_beam", "back_beam")] = beams
       }
-      activity_df[ii,"BackBeams"] = sum(progress$back_beam, na.rm = T)
-      activity_df[ii,"FrontBeams"] = sum(progress$front_beam, na.rm = T)
-    } else if(option == "iti") {
+      activity_df[ii,"backBeams"] = sum(progress$back_beam, na.rm = T)
+      activity_df[ii,"frontBeams"] = sum(progress$front_beam, na.rm = T)
       
+    } else if(option == "iti") {
       start = data[[details$fileName[ii]]] %>% 
         filter(grepl("orrect$", Item_Name)) %>% pull(Evnt_Time)
       end = data[[details$fileName[ii]]] %>% 
@@ -455,10 +310,11 @@ extract_activity = function(data = ml, option = "all", unit = "day") {
         
         progress[jj, c("front_beam", "back_beam")] = beams
       }
-      activity_df[ii,"BackBeams"] = sum(progress$back_beam, na.rm = T)
-      activity_df[ii,"FrontBeams"] = sum(progress$front_beam, na.rm = T)
+      activity_df[ii,"backBeams"] = sum(progress$back_beam, na.rm = T)
+      activity_df[ii,"frontBeams"] = sum(progress$front_beam, na.rm = T)
+      
     } else {
-      activity_df[ii, c("BackBeams", "FrontBeams")] <-
+      activity_df[ii, c("backBeams", "frontBeams")] =
         data[[details$fileName[ii]]] %>% 
         filter(Evnt_Name == "Input Transition On Event",
                Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>%
@@ -466,46 +322,115 @@ extract_activity = function(data = ml, option = "all", unit = "day") {
         summarize(n()) %>%
         pull(`n()`)
       
-      tray_entries <-
+      tray_entries =
         data[[details$fileName[ii]]] %>% 
         filter(Evnt_Name %in% c("Input Transition On Event", "Input Transition Off Event"),
                Item_Name == "Tray #1")
       if(tray_entries$Evnt_Name[1] == "Input Transition Off Event") tray_entries <- tray_entries[-1,]
-      activity_df$TrayEntries[ii] <-
+      activity_df$trayEntries[ii] =
         tray_entries %>% 
         filter(Evnt_Name == "Input Transition On Event") %>%
         count() %>% pull
       
-      tray_in <-
+      tray_in =
         tray_entries %>%
         filter(Evnt_Name == "Input Transition On Event") %>%
         select(In = Evnt_Time)
-      tray_out <-
+      tray_out =
         tray_entries %>%
         filter(Evnt_Name == "Input Transition Off Event") %>%
         select(Out = Evnt_Time)
       
-      if(nrow(tray_in) != nrow(tray_out)) tray_in <- tray_in[-nrow(tray_in),]
+      if(nrow(tray_in) != nrow(tray_out)) tray_in = tray_in[-nrow(tray_in),]
       
-      tray_time <-
+      tray_time =
         tray_out %>% 
         bind_cols(tray_in) %>%
         mutate(TrayTime = Out - In)
-      activity_df[ii, c("TrayTotalDuration", "TrayMeanDuration")] <-
+      activity_df[ii, c("trayTotalDuration", "trayMeanDuration")] =
         tray_time %>%
         summarise(total = sum(TrayTime),
                   mean = mean(TrayTime)) %>% unlist %>% unname
     }
   } 
   
-  activity_df %<>% mutate(TotalBeams = BackBeams + FrontBeams)
+  activity_df %<>% mutate(totalBeams = backBeams + frontBeams)
   
   return(activity_df)
-}  # option = c("all","trial","iti"); unit = c("day","bin")
+}
 
-extract_screenTouches = function(data = ml, unit = "day") {
-  details = data$details
-  df = data$df
+extract_latency = function(data = ml, unit = "day", exclude = NULL) {
+  ## unit = c("day","bin")
+  
+  details = data$details %>% filter(animalID %not_in% exclude)
+  data = data$data
+  n = nrow(details)
+  latency_df = tibble(fileName = character(n),
+                      correctLatency = numeric(n), incorrectLatency = numeric(n), generalLatency = numeric(n))
+  
+  for(ii in 1:n) {
+    print(paste0("Response latency - file ", ii, " / ", n, ": ", details$fileName[ii]))
+    
+    latency_df$fileName[ii] = details$fileName[ii]
+    
+    outcome =
+      data[[details$fileName[ii]]] %>%
+      select(Evnt_Time, Item_Name) %>%
+      filter(Item_Name %in% c("Correct", "Incorrect")) 
+    response_all =
+      data[[details$fileName[ii]]] %>%
+      select(Evnt_Time, Item_Name) %>% 
+      filter(Item_Name %in% c("Start Trial", "Start Correction Trial")) %>%
+      slice(1:nrow(outcome)) %>%
+      bind_cols(outcome) %>%
+      mutate(Response_Latency = Evnt_Time1 - Evnt_Time,
+             Item_Name = gsub("Start ", "", Item_Name))
+    response_c_ic =
+      response_all %>% 
+      group_by(Item_Name1) %>%
+      summarise(Response_Latency = mean(Response_Latency)) %>% pull()
+    
+    latency_df[ii, c("correctLatency", "incorrectLatency")] = response_c_ic
+    latency_df[ii, "generalLatency"] = mean(response_all$Response_Latency)
+  }
+  
+  return(latency_df)
+}
+
+extract_rewardCollectionError = function(data = ml, unit = "day", exclude = NULL) {
+  ## unit = c("day","bin")
+  
+  details = data$details %>% filter(animalID %not_in% exclude)
+  data = data$data
+  n = nrow(details)
+  prop2tray = tibble(fileName = character(n),
+                     propCorrect = numeric(n), propIncorrect = numeric(n))
+  
+  for(ii in 1:n) {
+    print(paste0("Reward collection error - file ", ii, " / ", n, ": ", details$fileName[ii]))
+    
+    prop2tray$fileName = details$fileName[ii]
+    prop2tray[ii, c("propCorrect", "propIncorrect")] =
+      data[[details$fileName[ii]]] %>%
+      filter(Item_Name %in% c("Correct", "Incorrect", "Tray #1")) %>%
+      mutate(Evnt_Time2 = lead(Evnt_Time)) %>%
+      filter(Item_Name %in% c("Correct", "Incorrect")) %>%
+      mutate(within_5s = Evnt_Time2 - Evnt_Time <= 5) %>%
+      select(Evnt_Time, Item_Name, Evnt_Time2, within_5s) %>%
+      group_by(Item_Name) %>%
+      summarise(Prop2tray = mean(within_5s, na.rm = T)) %>% pull()
+  }
+  
+  return(prop2tray) 
+}
+
+extract_screenTouches = function(data = ml, unit = "day", exclude = NULL) {
+  ## unit = c("day","bin")
+  
+  details = data$details %>% filter(animalID %not_in% exclude)
+  df = data$df %>% semi_join(details, by = "fileName")
+  
+  print("Initiate processing of screen touches\n")
   
   screenActivity_df =
     df %>% 
@@ -514,9 +439,51 @@ extract_screenTouches = function(data = ml, unit = "day") {
     group_by(animalID,fileName,genotype,protocol,day) %>% 
     summarise(postScreenTouch_sum = sum(postScreenTouch),
               postScreenTouch_mean = mean(postScreenTouch)) %>% 
-    mutate(bin = ceiling(day / 5)) %>% 
+    # mutate(bin = ceiling(day / 5)) %>% 
     ungroup()
   
   return(screenActivity_df)
+}
+
+extract_sequence = function(data = ml, type = "Correction Trial", unit = "day", exclude = NULL) {
+  ## type = c("Trial","Correction Trial")
+  ## unit = c("day","bin","both")
   
-} # unit = c("day","bin")
+  details = data$details %>% filter(animalID %not_in% exclude)
+  df = data$df %>% semi_join(details, by = "fileName")
+  n = nrow(details)
+  sequence_list = setNames(replicate(n, tibble()), details$fileName)
+  sequence_df = tibble(fileName = character(n), 
+                       trialType = rep(type, n),
+                       nSeq = numeric(n), 
+                       minSeq = numeric(n), medSeq = numeric(n), 
+                       aveSeq = numeric(n), maxSeq = numeric(n),
+                       sdSeq = numeric(n), seSeq = numeric(n))
+  
+  for(ii in 1:n) {
+    print(paste0("Sequence - file ", ii, " / ", n, ": ", details$fileName[ii]))
+    
+    ssFile = filter(df, fileName == pull(details[ii, "fileName"]))
+    identifier = rle(as.character(ssFile$trialType)); identifier = tibble(values = identifier$values, lengths = identifier$lengths)
+    sequence_list[[ii]] = identifier %>% filter(values == type) %>% pull(lengths)
+    sequence_df[ii,] = 
+      identifier %>%
+      filter(values == type) %>%
+      summarise(fileName = details$fileName[ii],
+                trialType = type,
+                nSeq = n(),
+                minSeq = min(lengths),
+                medSeq = median(lengths),
+                aveSeq = mean(lengths),
+                maxSeq = max(lengths),
+                sdSeq = sd(lengths),
+                seSeq = se(lengths))
+  }
+  return(seqSummary = list(seqList = sequence_list,
+                           seqData = sequence_df))
+}
+
+extract_trialTime = function(data = ml, unit = "day", exclude = NULL) {
+  ## unit = c("day","bin","both")
+  
+} # in progress
