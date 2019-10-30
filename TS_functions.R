@@ -215,9 +215,7 @@ format2dataframe = function(data = ml) {
   ))
 }
 
-extract_accuracy = function(data = ml, unit = "day", exclude = NULL) {
-  ## unit = c("day","bin","both")
-  
+extract_accuracy = function(data = ml, exclude = NULL) {
   details = data$details %>% filter(animalID %not_in% exclude)
   df = data$df
   n = nrow(details)
@@ -248,9 +246,8 @@ extract_accuracy = function(data = ml, unit = "day", exclude = NULL) {
   return(accuracy_df)
 }
 
-extract_activity = function(data = ml, option = "all", unit = "day", exclude = NULL) {
+extract_activity = function(data = ml, option = "all", exclude = NULL) {
   ## option = c("all","trial","iti")
-  ## unit = c("day","bin")
   
   details = data$details %>% filter(animalID %not_in% exclude)
   data = data$data
@@ -359,9 +356,7 @@ extract_activity = function(data = ml, option = "all", unit = "day", exclude = N
   return(activity_df)
 }
 
-extract_latency = function(data = ml, unit = "day", exclude = NULL) {
-  ## unit = c("day","bin")
-  
+extract_latency = function(data = ml, exclude = NULL) {
   details = data$details %>% filter(animalID %not_in% exclude)
   data = data$data
   n = nrow(details)
@@ -397,9 +392,7 @@ extract_latency = function(data = ml, unit = "day", exclude = NULL) {
   return(latency_df)
 }
 
-extract_rewardCollectionError = function(data = ml, unit = "day", exclude = NULL) {
-  ## unit = c("day","bin")
-  
+extract_rewardCollectionError = function(data = ml, exclude = NULL) {
   details = data$details %>% filter(animalID %not_in% exclude)
   data = data$data
   n = nrow(details)
@@ -424,9 +417,7 @@ extract_rewardCollectionError = function(data = ml, unit = "day", exclude = NULL
   return(prop2tray) 
 }
 
-extract_screenTouches = function(data = ml, unit = "day", exclude = NULL) {
-  ## unit = c("day","bin")
-  
+extract_screenTouches = function(data = ml, exclude = NULL) {
   details = data$details %>% filter(animalID %not_in% exclude)
   df = data$df %>% semi_join(details, by = "fileName")
   
@@ -445,12 +436,11 @@ extract_screenTouches = function(data = ml, unit = "day", exclude = NULL) {
   return(screenActivity_df)
 }
 
-extract_sequence = function(data = ml, type = "Correction Trial", unit = "day", exclude = NULL) {
+extract_sequence = function(data = ml, type = "Correction Trial", exclude = NULL) {
   ## type = c("Trial","Correction Trial")
-  ## unit = c("day","bin","both")
   
   details = data$details %>% filter(animalID %not_in% exclude)
-  df = data$df %>% semi_join(details, by = "fileName")
+  df = data$df
   n = nrow(details)
   sequence_list = setNames(replicate(n, tibble()), details$fileName)
   sequence_df = tibble(fileName = character(n), 
@@ -483,7 +473,29 @@ extract_sequence = function(data = ml, type = "Correction Trial", unit = "day", 
                            seqData = sequence_df))
 }
 
-extract_trialTime = function(data = ml, unit = "day", exclude = NULL) {
-  ## unit = c("day","bin","both")
+extract_trialTime = function(data = ml, exclude = NULL) {
+  # details = data$details %>% filter(animalID %not_in% exclude)
+  df = data$df
+  # data = data$data
+  # n = nrow(details)
   
-} # in progress
+  trialduration =
+    df %>% 
+    mutate(trialDuration = endTime - startTime) %>% 
+    filter(!is.na(outcome)) %>% 
+    select(fileName,outcome,trialDuration)
+  trialtime_df =
+    trialduration %>% 
+    group_by(fileName,outcome) %>% 
+    summarise(trialDuration = mean(trialDuration)) %>% 
+    spread(outcome,trialDuration) %>% 
+    rename(durationTrialIncorrect = `FALSE`, durationTrialCorrect = `TRUE`) %>% 
+    left_join(
+      trialduration %>% 
+        group_by(fileName) %>% 
+        summarise(durationTrialMean = mean(trialDuration)),
+      by = "fileName"
+    )
+  
+  return(trialtime_df)
+}
