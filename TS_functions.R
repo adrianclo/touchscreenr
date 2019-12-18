@@ -311,13 +311,16 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
       activity_df[ii,"frontBeams"] = sum(progress$front_beam, na.rm = T)
       
     } else {
-      activity_df[ii, c("backBeams", "frontBeams")] =
-        data[[details$fileName[ii]]] %>% 
+      values = data[[details$fileName[ii]]] %>% 
         filter(Evnt_Name == "Input Transition On Event",
                Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>%
         group_by(Item_Name) %>%
         summarize(n()) %>%
         pull(`n()`)
+      
+      if(length(values) == 0) { values = c(0,0) } # added line (test phase)
+      activity_df[ii, c("backBeams", "frontBeams")] = values
+        
       
       tray_entries =
         data[[details$fileName[ii]]] %>% 
@@ -402,7 +405,7 @@ extract_rewardCollectionError = function(data = ml, exclude = NULL) {
   for(ii in 1:n) {
     print(paste0("Reward collection error - file ", ii, " / ", n, ": ", details$fileName[ii]))
     
-    prop2tray$fileName = details$fileName[ii]
+    prop2tray$fileName[ii] = details$fileName[ii]
     prop2tray[ii, c("propCorrect", "propIncorrect")] =
       data[[details$fileName[ii]]] %>%
       filter(Item_Name %in% c("Correct", "Incorrect", "Tray #1")) %>%
@@ -498,4 +501,47 @@ extract_trialTime = function(data = ml, exclude = NULL) {
     )
   
   return(trialtime_df)
+}
+
+process_sequence = function(seq = seq, details = ml, test = NULL, start = NULL, end = NULL, title = NULL, max_length = 40) {
+  details = details$details
+  details %<>%
+    mutate(genotype = factor(genotype, levels = c("WT","KO"))) %>% 
+    filter(protocol == test) %>% 
+    filter(between(day,start,end)) %>% 
+    select(genotype,fileName) %>% 
+    group_by(genotype) %>% nest()
+  n = nrow(details)
+  
+  seq_list = rep(list(NULL), times = n)
+  names(seq_list) = details %>% pull(genotype)
+  for(ii in 1:n) { 
+    seq_list[[ii]] = 
+      seq$seqList[details %>% 
+                    ungroup() %>% 
+                    slice(ii) %>% unnest(c(data)) %>% 
+                    pull(fileName)] %>% 
+      unlist() %>% unname() %>% sort()
+  }
+
+  print(ks.test(seq_list[[1]],
+                seq_list[[2]]))
+  
+  seq_distribution =
+    tibble(
+      genotype = rep(names(seq_list), times = c(length(seq_list[[1]]),length(seq_list[[2]]))),
+      seq_length = c(seq_list[[1]], seq_list[[2]])
+    )
+  
+  seqPlot =
+    ggplot(seq_distribution, aes(seq_length, color = genotype)) +
+    stat_ecdf(geom = "step", size = 1) +
+    ggtitle(title) +
+    xlim(c(0,max_length)) +
+    theme_bw() +
+    theme(
+      panel.grid = element_blank()
+    ) +
+    labs(x = "Sequence length", y = "Cumulative proportion")
+  print(seqPlot)
 }
