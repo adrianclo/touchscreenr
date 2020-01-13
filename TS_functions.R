@@ -17,6 +17,8 @@ se = function(x) sd(x, na.rm = T) / sqrt(length(x))
 
 `%not_in%` = purrr::negate(`%in%`)
 
+# formatting functions ------------------------------------------------------------------
+
 format2essential = function(filesDir = NULL, 
                             wt = NULL, het = NULL, ko = NULL, ki = NULL,
                             exclude_files = NULL, include_files = NULL, exclude_mice = NULL) {
@@ -34,9 +36,9 @@ format2essential = function(filesDir = NULL,
   
   ## placeholder details and data
   details = dplyr::tibble(animalID = character(nFiles), genotype = character(nFiles), 
-                   protocol = character(nFiles), machineID = character(nFiles),
-                   sessionID = numeric(nFiles), fileName = character(nFiles), 
-                   date = character(nFiles))
+                          protocol = character(nFiles), machineID = character(nFiles),
+                          sessionID = numeric(nFiles), fileName = character(nFiles), 
+                          date = character(nFiles))
   data = setNames(replicate(nFiles, dplyr::tibble()), files)
   
   # ii = 1
@@ -98,7 +100,7 @@ format2essential = function(filesDir = NULL,
     #                             str_detect(tolower(protocol), pattern = "reversal") ~ "reversal",
     #                             str_detect(tolower(protocol), pattern = "acquisition") ~ "acquisition")) %>%
     dplyr::mutate(sessionID = as.numeric(sessionID),
-           date = lubridate::dmy_hms(date)) %>%
+                  date = lubridate::dmy_hms(date)) %>%
     dplyr::group_by(protocol, animalID) %>%
     dplyr::arrange(date) %>%
     dplyr::mutate(day = 1:dplyr::n()) %>%
@@ -117,12 +119,12 @@ format2dataframe = function(data = ml) {
   
   ## placeholder tibble for all summary data
   fData = dplyr::tibble(fileName = character(0), 
-                 trialOrder = numeric(0), trialType = character(0), 
-                 startTime = numeric(0), choiceRT = numeric(0),
-                 outcome = logical(0), postChoiceVisit = logical(0),
-                 firBeam = numeric(0), birBeam = numeric(0), postScreenTouch = numeric(0),
-                 choice_location = numeric(0), choice_image = character(0), choice_X = numeric(0), choice_Y = numeric(0),
-                 tBeam = numeric(0), endTime = numeric(0))
+                        trialOrder = numeric(0), trialType = character(0), 
+                        startTime = numeric(0), choiceRT = numeric(0),
+                        outcome = logical(0), postChoiceVisit = logical(0),
+                        firBeam = numeric(0), birBeam = numeric(0), postScreenTouch = numeric(0),
+                        choice_location = numeric(0), choice_image = character(0), choice_X = numeric(0), choice_Y = numeric(0),
+                        tBeam = numeric(0), endTime = numeric(0))
   
   # ii = 622
   for(ii in 1:nrow(details)) {
@@ -137,12 +139,12 @@ format2dataframe = function(data = ml) {
     
     ## placeholder tibble for single .csv-related summary data
     data_t = dplyr::tibble(trialOrder = numeric(trialLength), trialType = character(trialLength), 
-                    startTime = numeric(trialLength), choiceRT = numeric(trialLength),
-                    outcome = character(trialLength), postChoiceVisit = character(trialLength),
-                    firBeam = numeric(trialLength), birBeam = numeric(trialLength),
-                    postScreenTouch = numeric(trialLength), 
-                    choice_location = numeric(trialLength), choice_image = character(trialLength),
-                    choice_X = numeric(trialLength), choice_Y = numeric(trialLength))
+                           startTime = numeric(trialLength), choiceRT = numeric(trialLength),
+                           outcome = character(trialLength), postChoiceVisit = character(trialLength),
+                           firBeam = numeric(trialLength), birBeam = numeric(trialLength),
+                           postScreenTouch = numeric(trialLength), 
+                           choice_location = numeric(trialLength), choice_image = character(trialLength),
+                           choice_X = numeric(trialLength), choice_Y = numeric(trialLength))
     
     # jj = 1
     for(jj in 1:trialLength) {
@@ -200,11 +202,11 @@ format2dataframe = function(data = ml) {
     
     data_t %<>%
       dplyr::mutate(fileName = details$fileName[ii],
-             outcome = ifelse(outcome == "Correct", T, F),
-             tBeam = firBeam + birBeam,
-             endTime = dplyr::lead(startTime)) %>%
+                    outcome = ifelse(outcome == "Correct", T, F),
+                    tBeam = firBeam + birBeam,
+                    endTime = dplyr::lead(startTime)) %>%
       dplyr::select(fileName, trialOrder:startTime, endTime, choiceRT:outcome, 
-             choice_location:choice_Y, postChoiceVisit, firBeam:birBeam, tBeam, postScreenTouch)
+                    choice_location:choice_Y, postChoiceVisit, firBeam:birBeam, tBeam, postScreenTouch)
     data_t$endTime[nrow(data_t)] = tail(ssData$Evnt_Time, 1)
     
     fData %<>% dplyr::bind_rows(data_t)
@@ -215,14 +217,16 @@ format2dataframe = function(data = ml) {
   ))
 }
 
+# extraction functions ------------------------------------------------------------------
+
 extract_accuracy = function(data = ml, exclude = NULL) {
   details = data$details %>% dplyr::filter(animalID %not_in% exclude)
   df = data$df
   n = nrow(details)
   accuracy_df = dplyr::tibble(fileName = character(n),
-                       nTrial_n = numeric(n), nTrial_correct = numeric(n), nTrial_perc = numeric(n),
-                       tTrial_n = numeric(n), cTrial_n = numeric(n), cTrial_perc = numeric(n), 
-                       perseveration_index = numeric(n))
+                              nTrial_n = numeric(n), nTrial_correct = numeric(n), nTrial_perc = numeric(n),
+                              tTrial_n = numeric(n), cTrial_n = numeric(n), cTrial_perc = numeric(n), 
+                              perseveration_index = numeric(n))
   
   for(ii in 1:n) {
     print(paste0("Accuracy - file ", ii, " / ", n,": ",details$fileName[ii]))
@@ -252,10 +256,10 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
   details = data$details %>% dplyr::filter(animalID %not_in% exclude)
   data = data$data
   n = nrow(details)
-  # reports the total number of back-front-total beam crossings
+  ## reports the total number of back-front-total beam crossings
   activity_df = dplyr::tibble(fileName = character(n),
-                       trayEntries = numeric(n), trayTotalDuration = numeric(n), trayMeanDuration = numeric(n),
-                       backBeams = numeric(n), frontBeams = numeric(n))
+                              trayEntries = numeric(n), trayTotalDuration = numeric(n), trayMeanDuration = numeric(n),
+                              backBeams = numeric(n), frontBeams = numeric(n))
   
   for(ii in 1:n) {
     print(paste0("Activity - file ", ii, " / ", n,": ",details$fileName[ii]))
@@ -275,7 +279,7 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
         beams = data[[details$fileName[ii]]] %>% 
           dplyr::filter(dplyr::between(Evnt_Time, progress$start[jj], progress$end[jj])) %>% 
           dplyr::filter(Evnt_Name == "Input Transition On Event",
-                 Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>% 
+                        Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>% 
           dplyr::group_by(Item_Name) %>%
           dplyr::summarize(dplyr::n()) %>%
           dplyr::pull(`n()`)
@@ -299,7 +303,7 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
         beams = data[[details$fileName[ii]]] %>% 
           dplyr::filter(dplyr::between(Evnt_Time, progress$start[jj], progress$end[jj])) %>% 
           dplyr::filter(Evnt_Name == "Input Transition On Event",
-                 Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>% 
+                        Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>% 
           dplyr::group_by(Item_Name) %>%
           dplyr::summarize(dplyr::n()) %>%
           dplyr::pull(`n()`)
@@ -313,19 +317,19 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
     } else {
       values = data[[details$fileName[ii]]] %>% 
         dplyr::filter(Evnt_Name == "Input Transition On Event",
-               Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>%
+                      Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>%
         dplyr::group_by(Item_Name) %>%
         dplyr::summarize(dplyr::n()) %>%
         dplyr::pull(`n()`)
       
       if(length(values) == 0) { values = c(0,0) } # added line (test phase)
       activity_df[ii, c("backBeams", "frontBeams")] = values
-        
+      
       
       tray_entries =
         data[[details$fileName[ii]]] %>% 
         dplyr::filter(Evnt_Name %in% c("Input Transition On Event", "Input Transition Off Event"),
-               Item_Name == "Tray #1")
+                      Item_Name == "Tray #1")
       if(tray_entries$Evnt_Name[1] == "Input Transition Off Event") tray_entries <- tray_entries[-1,]
       activity_df$trayEntries[ii] =
         tray_entries %>% 
@@ -364,7 +368,7 @@ extract_latency = function(data = ml, exclude = NULL) {
   data = data$data
   n = nrow(details)
   latency_df = dplyr::tibble(fileName = character(n),
-                      correctLatency = numeric(n), incorrectLatency = numeric(n), generalLatency = numeric(n))
+                             correctLatency = numeric(n), incorrectLatency = numeric(n), generalLatency = numeric(n))
   
   for(ii in 1:n) {
     print(paste0("Response latency - file ", ii, " / ", n, ": ", details$fileName[ii]))
@@ -382,7 +386,7 @@ extract_latency = function(data = ml, exclude = NULL) {
       dplyr::slice(1:nrow(outcome)) %>%
       dplyr::bind_cols(outcome) %>%
       dplyr::mutate(Response_Latency = Evnt_Time1 - Evnt_Time,
-             Item_Name = gsub("Start ", "", Item_Name))
+                    Item_Name = gsub("Start ", "", Item_Name))
     response_c_ic =
       response_all %>% 
       dplyr::group_by(Item_Name1) %>%
@@ -400,7 +404,7 @@ extract_rewardCollectionError = function(data = ml, exclude = NULL) {
   data = data$data
   n = nrow(details)
   prop2tray = dplyr::tibble(fileName = character(n),
-                     propCorrect = numeric(n), propIncorrect = numeric(n))
+                            propCorrect = numeric(n), propIncorrect = numeric(n))
   
   for(ii in 1:n) {
     print(paste0("Reward collection error - file ", ii, " / ", n, ": ", details$fileName[ii]))
@@ -432,7 +436,7 @@ extract_screenTouches = function(data = ml, exclude = NULL) {
     dplyr::filter(!is.na(postScreenTouch)) %>% 
     dplyr::group_by(animalID,fileName,genotype,protocol,day) %>% 
     dplyr::summarise(postScreenTouch_sum = sum(postScreenTouch),
-              postScreenTouch_mean = mean(postScreenTouch)) %>% 
+                     postScreenTouch_mean = mean(postScreenTouch)) %>% 
     # mutate(bin = ceiling(day / 5)) %>% 
     dplyr::ungroup()
   
@@ -447,11 +451,11 @@ extract_sequence = function(data = ml, type = "Correction Trial", exclude = NULL
   n = nrow(details)
   sequence_list = setNames(replicate(n, dplyr::tibble()), details$fileName)
   sequence_df = dplyr::tibble(fileName = character(n), 
-                       trialType = rep(type, n),
-                       nSeq = numeric(n), 
-                       minSeq = numeric(n), medSeq = numeric(n), 
-                       aveSeq = numeric(n), maxSeq = numeric(n),
-                       sdSeq = numeric(n), seSeq = numeric(n))
+                              trialType = rep(type, n),
+                              nSeq = numeric(n), 
+                              minSeq = numeric(n), medSeq = numeric(n), 
+                              aveSeq = numeric(n), maxSeq = numeric(n),
+                              sdSeq = numeric(n), seSeq = numeric(n))
   
   for(ii in 1:n) {
     print(paste0("Sequence - file ", ii, " / ", n, ": ", details$fileName[ii]))
@@ -463,14 +467,14 @@ extract_sequence = function(data = ml, type = "Correction Trial", exclude = NULL
       identifier %>%
       dplyr::filter(values == type) %>%
       dplyr::summarise(fileName = details$fileName[ii],
-                trialType = type,
-                nSeq = dplyr::n(),
-                minSeq = min(lengths),
-                medSeq = median(lengths),
-                aveSeq = mean(lengths),
-                maxSeq = max(lengths),
-                sdSeq = sd(lengths),
-                seSeq = se(lengths))
+                       trialType = type,
+                       nSeq = dplyr::n(),
+                       minSeq = min(lengths),
+                       medSeq = median(lengths),
+                       aveSeq = mean(lengths),
+                       maxSeq = max(lengths),
+                       sdSeq = sd(lengths),
+                       seSeq = se(lengths))
   }
   return(seqSummary = list(seqList = sequence_list,
                            seqData = sequence_df))
@@ -523,7 +527,7 @@ process_sequence = function(seq = seq, details = ml, test = NULL, start = NULL, 
                     dplyr::pull(fileName)] %>% 
       unlist() %>% unname() %>% sort()
   }
-
+  
   print(ks.test(seq_list[[1]],
                 seq_list[[2]]))
   
@@ -545,3 +549,29 @@ process_sequence = function(seq = seq, details = ml, test = NULL, start = NULL, 
     ggplot2::labs(x = "Sequence length", y = "Cumulative proportion")
   print(seqPlot)
 }
+
+# analyze functions ---------------------------------------------------------------------
+
+# in progress
+analyze_accuracy = function(data = ml, extract = extract, time_unit = "day", bin = NULL) {
+  details = data$details
+  
+  ...
+  
+  if(time_unit == "bin") {
+    
+  } else if(time_unit == "day") {
+    
+  }
+  
+}
+
+
+
+
+
+
+
+
+
+
