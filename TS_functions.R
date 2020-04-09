@@ -255,14 +255,15 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
   
   details = data$details %>% dplyr::filter(animalID %not_in% exclude)
   data = data$data
-  n = nrow(details)
+  nn = nrow(details)
   ## reports the total number of back-front-total beam crossings
-  activity_df = dplyr::tibble(fileName = character(n),
-                              trayEntries = numeric(n), trayTotalDuration = numeric(n), trayMeanDuration = numeric(n),
-                              backBeams = numeric(n), frontBeams = numeric(n))
+  activity_df = dplyr::tibble(fileName = character(nn),
+                              trayEntries = numeric(nn), trayTotalDuration = numeric(nn), trayMeanDuration = numeric(nn),
+                              backBeams = numeric(nn), frontBeams = numeric(nn))
   
-  for(ii in 1:n) {
-    print(paste0("Activity - file ", ii, " / ", n,": ",details$fileName[ii]))
+  ii = 1
+  for(ii in 1:nn) {
+    print(paste0("Activity - file ", ii, " / ", nn,": ",details$fileName[ii]))
     
     activity_df$fileName[ii] = details$fileName[ii]
     
@@ -281,8 +282,8 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
           dplyr::filter(Evnt_Name == "Input Transition On Event",
                         Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>% 
           dplyr::group_by(Item_Name) %>%
-          dplyr::summarize(dplyr::n()) %>%
-          dplyr::pull(`n()`)
+          dplyr::summarize(n_ = dplyr::n()) %>%
+          dplyr::pull(n_)
         if(length(beams) == 1) beams = c(beams,NA)
         
         progress[jj, c("front_beam", "back_beam")] = beams
@@ -305,8 +306,8 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
           dplyr::filter(Evnt_Name == "Input Transition On Event",
                         Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>% 
           dplyr::group_by(Item_Name) %>%
-          dplyr::summarize(dplyr::n()) %>%
-          dplyr::pull(`n()`)
+          dplyr::summarize(n_ = dplyr::n()) %>%
+          dplyr::pull(n_)
         if(length(beams) == 1) beams = c(beams,NA)
         
         progress[jj, c("front_beam", "back_beam")] = beams
@@ -319,12 +320,11 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
         dplyr::filter(Evnt_Name == "Input Transition On Event",
                       Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>%
         dplyr::group_by(Item_Name) %>%
-        dplyr::summarize(dplyr::n()) %>%
-        dplyr::pull(`n()`)
+        dplyr::summarize(n_ = dplyr::n()) %>%
+        dplyr::pull(n_)
       
       if(length(values) == 0) { values = c(0,0) } # added line (test phase)
       activity_df[ii, c("backBeams", "frontBeams")] = values
-      
       
       tray_entries =
         data[[details$fileName[ii]]] %>% 
@@ -428,7 +428,7 @@ extract_screenTouches = function(data = ml, exclude = NULL) {
   details = data$details %>% dplyr::filter(animalID %not_in% exclude)
   df = data$df %>% dplyr::semi_join(details, by = "fileName")
   
-  print("Initiate processing of screen touches\n")
+  cat("Initiate processing of screen touches\n")
   
   screenActivity_df =
     df %>% 
