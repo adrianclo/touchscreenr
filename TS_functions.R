@@ -1,17 +1,21 @@
-suppressMessages(library(dplyr))     # 0.7.4
-suppressMessages(library(readxl))    # 1.1.0
-suppressMessages(library(writexl))   # 0.2
-suppressMessages(library(magrittr))  # 1.5.0
-suppressMessages(library(ggplot2))   # 2.2.1
-suppressMessages(library(tibble))    # 1.4.2
-suppressMessages(library(stringr))   # 1.3.0
-suppressMessages(library(gridExtra)) # 2.2.1
-suppressMessages(library(extrafont)) # 0.17
-suppressMessages(library(reshape2))  # 1.4.2
-suppressMessages(library(readr))     # 1.3.1
-suppressMessages(library(lubridate)) # 1.7.4
-suppressMessages(library(tidyr))     # 0.8.3
-suppressMessages(library(purrr))     # 0.3.2
+suppressPackageStartupMessages({
+    suppressWarnings({
+        library(dplyr)     # 0.7.4
+        library(readxl)    # 1.1.0
+        library(writexl)   # 0.2
+        library(magrittr)  # 1.5.0
+        library(ggplot2)   # 2.2.1
+        library(tibble)    # 1.4.2
+        library(stringr)   # 1.3.0
+        library(gridExtra) # 2.2.1
+        library(extrafont) # 0.17
+        library(reshape2)  # 1.4.2
+        library(readr)     # 1.3.1
+        library(lubridate) # 1.7.4
+        library(tidyr)     # 0.8.3
+        library(purrr)     # 0.3.2
+    })
+})
 
 se = function(x) sd(x, na.rm = T) / sqrt(length(x))
 
