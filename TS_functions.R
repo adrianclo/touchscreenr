@@ -1,21 +1,17 @@
-suppressPackageStartupMessages({
-    suppressWarnings({
-        library(dplyr)     # 0.7.4
-        library(readxl)    # 1.1.0
-        library(writexl)   # 0.2
-        library(magrittr)  # 1.5.0
-        library(ggplot2)   # 2.2.1
-        library(tibble)    # 1.4.2
-        library(stringr)   # 1.3.0
-        library(gridExtra) # 2.2.1
-        library(extrafont) # 0.17
-        library(reshape2)  # 1.4.2
-        library(readr)     # 1.3.1
-        library(lubridate) # 1.7.4
-        library(tidyr)     # 0.8.3
-        library(purrr)     # 0.3.2
-    })
-})
+suppressMessages(library(dplyr))     # 0.7.4
+suppressMessages(library(readxl))    # 1.1.0
+suppressMessages(library(writexl))   # 0.2
+suppressMessages(library(magrittr))  # 1.5.0
+suppressMessages(library(ggplot2))   # 2.2.1
+suppressMessages(library(tibble))    # 1.4.2
+suppressMessages(library(stringr))   # 1.3.0
+suppressMessages(library(gridExtra)) # 2.2.1
+suppressMessages(library(extrafont)) # 0.17
+suppressMessages(library(reshape2))  # 1.4.2
+suppressMessages(library(readr))     # 1.3.1
+suppressMessages(library(lubridate)) # 1.7.4
+suppressMessages(library(tidyr))     # 0.8.3
+suppressMessages(library(purrr))     # 0.3.2
 
 se = function(x) sd(x, na.rm = T) / sqrt(length(x))
 
@@ -259,15 +255,15 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
   
   details = data$details %>% dplyr::filter(animalID %not_in% exclude)
   data = data$data
-  nn = nrow(details)
+  n = nrow(details)
   ## reports the total number of back-front-total beam crossings
-  activity_df = dplyr::tibble(fileName = character(nn),
-                              trayEntries = numeric(nn), trayTotalDuration = numeric(nn), trayMeanDuration = numeric(nn),
-                              backBeams = numeric(nn), frontBeams = numeric(nn))
+  activity_df = dplyr::tibble(fileName = character(n),
+                              trayEntries = numeric(n), trayTotalDuration = numeric(n), trayMeanDuration = numeric(n),
+                              backBeams = numeric(n), frontBeams = numeric(n))
   
-  ii = 1
-  for(ii in 1:nn) {
-    print(paste0("Activity - file ", ii, " / ", nn,": ",details$fileName[ii]))
+  # ii = 1
+  for(ii in 1:n) {
+    print(paste0("Activity - file ", ii, " / ", n,": ",details$fileName[ii]))
     
     activity_df$fileName[ii] = details$fileName[ii]
     
@@ -286,11 +282,12 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
           dplyr::filter(Evnt_Name == "Input Transition On Event",
                         Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>% 
           dplyr::group_by(Item_Name) %>%
-          dplyr::summarize(n_ = dplyr::n()) %>%
-          dplyr::pull(n_)
+          dplyr::summarize(dplyr::n()) %>%
+          dplyr::pull(`dplyr::n()`)
         if(length(beams) == 1) beams = c(beams,NA)
         
-        progress[jj, c("front_beam", "back_beam")] = beams
+        progress[jj, "front_beam"] = beams[1]
+        progress[jj, "back_beam"] = beams[2]
       }
       activity_df[ii,"backBeams"] = sum(progress$back_beam, na.rm = T)
       activity_df[ii,"frontBeams"] = sum(progress$front_beam, na.rm = T)
@@ -310,11 +307,12 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
           dplyr::filter(Evnt_Name == "Input Transition On Event",
                         Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>% 
           dplyr::group_by(Item_Name) %>%
-          dplyr::summarize(n_ = dplyr::n()) %>%
-          dplyr::pull(n_)
+          dplyr::summarize(dplyr::n()) %>%
+          dplyr::pull(`dplyr::n()`)
         if(length(beams) == 1) beams = c(beams,NA)
         
-        progress[jj, c("front_beam", "back_beam")] = beams
+        progress[jj, "front_beam"] = beams[1]
+        progress[jj, "back_beam"] = beams[2]
       }
       activity_df[ii,"backBeams"] = sum(progress$back_beam, na.rm = T)
       activity_df[ii,"frontBeams"] = sum(progress$front_beam, na.rm = T)
@@ -324,11 +322,12 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
         dplyr::filter(Evnt_Name == "Input Transition On Event",
                       Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) %>%
         dplyr::group_by(Item_Name) %>%
-        dplyr::summarize(n_ = dplyr::n()) %>%
-        dplyr::pull(n_)
+        dplyr::summarize(dplyr::n()) %>%
+        dplyr::pull(`dplyr::n()`)
       
       if(length(values) == 0) { values = c(0,0) } # added line (test phase)
-      activity_df[ii, c("backBeams", "frontBeams")] = values
+      activity_df[ii, "backBeams"] = values[1]
+      activity_df[ii, "frontBeams"] = values[2]
       
       tray_entries =
         data[[details$fileName[ii]]] %>% 
@@ -355,10 +354,11 @@ extract_activity = function(data = ml, option = "all", exclude = NULL) {
         tray_out %>% 
         dplyr::bind_cols(tray_in) %>%
         dplyr::mutate(TrayTime = Out - In)
-      activity_df[ii, c("trayTotalDuration", "trayMeanDuration")] =
-        tray_time %>%
+      tray_time = tray_time %>%
         summarise(total = sum(TrayTime),
                   mean = mean(TrayTime)) %>% unlist %>% unname
+      activity_df[ii, "trayTotalDuration"] = tray_time[1]
+      activity_df[ii, "trayMeanDuration"] = tray_time[2]
     }
   } 
   
@@ -432,7 +432,7 @@ extract_screenTouches = function(data = ml, exclude = NULL) {
   details = data$details %>% dplyr::filter(animalID %not_in% exclude)
   df = data$df %>% dplyr::semi_join(details, by = "fileName")
   
-  cat("Initiate processing of screen touches\n")
+  print("Initiate processing of screen touches\n")
   
   screenActivity_df =
     df %>% 
@@ -557,18 +557,18 @@ process_sequence = function(seq = seq, details = ml, test = NULL, start = NULL, 
 # analyze functions ---------------------------------------------------------------------
 
 # in progress
-analyze_accuracy = function(data = ml, extract = extract, time_unit = "day", bin = NULL) {
-  details = data$details
-  
-  ...
-  
-  if(time_unit == "bin") {
-    
-  } else if(time_unit == "day") {
-    
-  }
-  
-}
+# analyze_accuracy = function(data = ml, extract = extract, time_unit = "day", bin = NULL) {
+#   details = data$details
+#   
+#   ...
+#   
+#   if(time_unit == "bin") {
+#     
+#   } else if(time_unit == "day") {
+#     
+#   }
+#   
+# }
 
 
 
