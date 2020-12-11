@@ -51,8 +51,8 @@ format2essential = function(filesDir = NULL,
     temp = suppressWarnings(readLines(paste0(filesDir, files[ii]))) %>% stringr::str_detect("----------")
     identifier = which(cumsum(temp) == 1)[1]
     
-    details_t = suppressMessages(readxl::read_csv(paste0(filesDir, files[ii]), n_max = identifier - 3))
-    data_t = suppressMessages(readxl::read_csv(paste0(filesDir, files[ii]), skip = identifier))
+    details_t = suppressMessages(readr::read_csv(paste0(filesDir, files[ii]), n_max = identifier - 3))
+    data_t = suppressMessages(readr::read_csv(paste0(filesDir, files[ii]), skip = identifier))
     
     if(details_t %>% filter(Name == "Animal ID") %>% dplyr::pull(Value) %in% exclude_mice) {
       next()
@@ -188,11 +188,11 @@ format2dataframe = function(data = ml) {
       data_t$firBeam[jj] = 
         ssTrial %>%
         dplyr::filter(Evnt_Name == "Input Transition On Event" & Item_Name == "FIRBeam #1") %>%
-        dplyr::nrow()
+        nrow()
       data_t$birBeam[jj] = 
         ssTrial %>%
         dplyr::filter(Evnt_Name == "Input Transition On Event" & Item_Name == "BIRBeam #1") %>%
-        dplyr::nrow()
+        nrow()
       
       data_t$postScreenTouch[jj] = 
         ssTrial %>% 
