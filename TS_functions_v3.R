@@ -47,7 +47,8 @@ format2essential <- function(filesDir = NULL,
     ## placeholder details and data
     details <- dplyr::tibble(animalID = character(nFiles), genotype = character(nFiles), 
                              protocol = character(nFiles), machineID = character(nFiles),
-                             sessionID = numeric(nFiles), fileName = character(nFiles), 
+                             sessionID = numeric(nFiles), fileName = character(nFiles),
+                             database = character(nFiles),
                              date = character(nFiles))
     data <- setNames(replicate(nFiles, dplyr::tibble()), files)
     
@@ -83,6 +84,7 @@ format2essential <- function(filesDir = NULL,
             details$machineID[ii] <- details_t %>% dplyr::filter(Name == "MachineName") %>% dplyr::pull(Value)
             details$sessionID[ii] <- details_t %>% dplyr::filter(Name == "SessionId") %>% dplyr::pull(Value)
             details$fileName[ii] <- files[ii]
+            details$database[ii] <- details_t %>% dplyr::filter(Name == "Database") %>% dplyr::pull(Value)
             details$date[ii] <- details_t %>% dplyr::filter(Name == "Date/Time") %>% dplyr::pull(Value)
             
             ## format data item
@@ -97,7 +99,7 @@ format2essential <- function(filesDir = NULL,
                         ## INITIAL TOUCH : end of trial (but between "Start ITI" and "Display Image" still activity possible)
                         Item_Name == "Start ITI" |
                         ## INITIAL TOUCH / MUST TOUCH / MUST INITIATE : Blank and Image Touches
-                        Item_name %in% c("Image Touched", "Blank Image Touched") |
+                        Item_Name %in% c("Image Touched", "Blank Image Touched") |
                         ## PUNISH INCORRECT / EXPERIMENT : start of trial
                         (Evnt_Name == "Condition Event" & Item_Name %in% c("Start Trial", "Start Correction Trial")) | 
                         ## EXPERIMENT : which images shown in which position
@@ -117,9 +119,20 @@ format2essential <- function(filesDir = NULL,
         }
     }
     details %<>%
-        # mutate(protocol = case_when(str_detect(tolower(protocol), pattern = "punish incorrect") ~ "punish incorrect",
-        #                             str_detect(tolower(protocol), pattern = "reversal") ~ "reversal",
-        #                             str_detect(tolower(protocol), pattern = "acquisition") ~ "acquisition")) %>%
+        dplyr::mutate(protocol = dplyr::case_when(stringr::str_detect(tolower(protocol), pattern = "habituation 1") ~ "habit 1",
+                                    stringr::str_detect(tolower(protocol), pattern = "habituation 2") ~ "habit 2",
+                                    stringr::str_detect(tolower(protocol), pattern = "initial touch") ~ "initial touch",
+                                    stringr::str_detect(tolower(protocol), pattern = "must touch") ~ "must touch",
+                                    stringr::str_detect(tolower(protocol), pattern = "must initiate") ~ "must initiate",
+                                    stringr::str_detect(tolower(protocol), pattern = "punish incorrect") ~ "punish incorrect",
+                                    stringr::str_detect(tolower(protocol), pattern = "visual discrimination") &
+                                        stringr::str_detect(tolower(protocol), pattern = "reversal") ~ "vd reversal",
+                                    stringr::str_detect(tolower(protocol), pattern = "visual discrimination") ~ "vd acquisition",
+                                    stringr::str_detect(tolower(protocol), pattern = "pal") &
+                                        stringr::str_detect(tolower(protocol), pattern = "v3") ~ "pal acquisition",
+                                    stringr::str_detect(tolower(protocol), pattern = "pal") &
+                                        stringr::str_detect(tolower(protocol), pattern = "reversal") ~ "pal reversal",
+                                    T ~ as.character(tolower(protocol)))) %>%
         dplyr::mutate(sessionID = as.numeric(sessionID),
                       date = lubridate::dmy_hms(date)) %>%
         dplyr::group_by(protocol, animalID) %>%
@@ -127,7 +140,7 @@ format2essential <- function(filesDir = NULL,
         dplyr::mutate(day = 1:dplyr::n()) %>%
         dplyr::arrange(day) %>%
         dplyr::ungroup() %>% 
-        dplyr::select(animalID, genotype, protocol, day, machineID, sessionID, fileName, date) %>% 
+        dplyr::select(animalID, genotype, protocol, day, machineID, sessionID, fileName, database, date) %>% 
         dplyr::filter(animalID != "")
     
     return(list(details = details,
