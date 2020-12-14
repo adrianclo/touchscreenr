@@ -1,14 +1,14 @@
 source("TS_functions_v2.R")
 
 # SETTINGS ---------------------------------------------------------------------
-filesDir <- "DIRECTORY/OF/RAW/DATA/FILES"
+filesDir <- file.path(getwd(), "pal_data")
 
-wt <- c("mouse1","mouse2")
-ko <- c("mouse3","mouse4")
+wt <- c("341-blue")
+ko <- c("341-red")
 ki <- NULL
 het <- NULL
 
-exportName <- "my-favourite-pal"
+exportName <- "sample-pal-data"
 
 # WHEN ALL SETTINGS ARE FILLED IN, PRESS "SOURCE"
 # A BEEP WILL SIGNAL WHEN THE PROCESSING IS FINISHED
@@ -47,7 +47,7 @@ sequence <- extract_sequence(sample)
 #     process_sequence(seq = sequence, details = sample, test = "Mouse dPAL reversal", start = 25, end = 30, title = "Reversal 25-30"),
 #     ncol = 2, nrow = 2
 # )
-    
+
 # EXPORT SUMMARY FILE
 sample_summary <- sample$details %>% 
     arrange(desc(protocol), animalID, day) %>% 

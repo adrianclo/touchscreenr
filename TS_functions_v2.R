@@ -13,6 +13,7 @@ suppressMessages(library(lubridate)) # 1.7.4
 suppressMessages(library(tidyr))     # 0.8.3
 suppressMessages(library(purrr))     # 0.3.2
 suppressMessages(library(tictoc))    # 1.0
+suppressMessages(library(beepr))     # 1.3
 
 se = function(x) sd(x, na.rm = T) / sqrt(length(x))
 
