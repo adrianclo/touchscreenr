@@ -1,4 +1,4 @@
-source("TS_functions_v2.R")
+source("TS_functions_v2.R") # only experimental data
 
 # SETTINGS ---------------------------------------------------------------------
 filesDir <- "DIRECTORY/OF/RAW/DATA/FILES"

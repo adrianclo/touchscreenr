@@ -1,4 +1,4 @@
-# THESE FUNCTIONS PROCESS ONLY EXPERIMENTAL DATA
+# THESE FUNCTIONS PROCESS BOTH HABITUATION+SHAPING AND EXPERIMENTAL DATA
 
 suppressMessages(library(dplyr))     # 0.7.4
 suppressMessages(library(readxl))    # 1.1.0
@@ -17,9 +17,9 @@ suppressMessages(library(purrr))     # 0.3.2
 suppressMessages(library(tictoc))    # 1.0
 suppressMessages(library(beepr))     # 1.3
 
-se = function(x) sd(x, na.rm = T) / sqrt(length(x))
+se <- function(x) sd(x, na.rm = T) / sqrt(length(x))
 
-`%not_in%` = purrr::negate(`%in%`)
+`%not_in%` <- purrr::negate(`%in%`)
 
 # to suppress the message from dplyr's summarise function
 globalCallingHandlers(message = function(m) {
@@ -29,79 +29,90 @@ globalCallingHandlers(message = function(m) {
 
 # formatting functions ------------------------------------------------------------------
 
-format2essential = function(filesDir = NULL, 
-                            wt = NULL, het = NULL, ko = NULL, ki = NULL,
-                            exclude_files = NULL, include_files = NULL, exclude_mice = NULL) {
+format2essential <- function(filesDir = NULL, 
+                             wt = NULL, het = NULL, ko = NULL, ki = NULL,
+                             exclude_files = NULL, include_files = NULL, exclude_mice = NULL) {
     
     if(!is.null(exclude_files)) {
-        files = list.files(filesDir) %>% dplyr::setdiff(exclude_files) # files = files[!(files %in% exclude_files)]
-        nFiles = length(files)
+        files <- list.files(filesDir) %>% dplyr::setdiff(exclude_files) # files = files[!(files %in% exclude_files)]
+        nFiles <- length(files)
     } else if(!is.null(include_files)) {
-        files = list.files(filesDir) %>% dplyr::intersect(include_files)
-        nFiles = length(files)
+        files <- list.files(filesDir) %>% dplyr::intersect(include_files)
+        nFiles <- length(files)
     } else {
-        files = list.files(filesDir)
-        nFiles = length(files)
+        files <- list.files(filesDir)
+        nFiles <- length(files)
     }
     
     ## placeholder details and data
-    details = dplyr::tibble(animalID = character(nFiles), genotype = character(nFiles), 
-                            protocol = character(nFiles), machineID = character(nFiles),
-                            sessionID = numeric(nFiles), fileName = character(nFiles), 
-                            date = character(nFiles))
-    data = setNames(replicate(nFiles, dplyr::tibble()), files)
+    details <- dplyr::tibble(animalID = character(nFiles), genotype = character(nFiles), 
+                             protocol = character(nFiles), machineID = character(nFiles),
+                             sessionID = numeric(nFiles), fileName = character(nFiles), 
+                             date = character(nFiles))
+    data <- setNames(replicate(nFiles, dplyr::tibble()), files)
     
-    # ii = 1
+    # ii <- 1
     for(ii in 1:nFiles) {
         print(paste0("Simplifying ",ii,"/",nFiles," files: ",
                      files[ii],
                      ". Progress: ", round(ii / nFiles*100, 2),"%"))
         
         ## different raw file alignment depending on protocol
-        temp = suppressWarnings(readLines(file.path(filesDir, files[ii]))) %>% stringr::str_detect("----------")
-        identifier = which(cumsum(temp) == 1)[1]
+        temp <- suppressWarnings(readLines(file.path(filesDir, files[ii]))) %>% stringr::str_detect("----------")
+        identifier <- which(cumsum(temp) == 1)[1]
         
-        details_t = suppressMessages(readr::read_csv(file.path(filesDir, files[ii]), n_max = identifier - 3))
-        data_t = suppressMessages(readr::read_csv(file.path(filesDir, files[ii]), skip = identifier))
+        details_t <- suppressMessages(readr::read_csv(file.path(filesDir, files[ii]), n_max = identifier - 3))
+        data_t <- suppressMessages(readr::read_csv(file.path(filesDir, files[ii]), skip = identifier))
         
         if(details_t %>% filter(Name == "Animal ID") %>% dplyr::pull(Value) %in% exclude_mice) {
             next()
         } else {
             ## format details item
             if(details_t %>% dplyr::filter(Name == "Animal ID") %>% dplyr::pull(Value) %>% length() == 0) {
-                details$animalID[ii] = NA
-            } else { details$animalID[ii] = details_t %>% dplyr::filter(Name == "Animal ID") %>% dplyr::pull(Value) }
+                details$animalID[ii] <- NA
+            } else { 
+                details$animalID[ii] <- details_t %>% dplyr::filter(Name == "Animal ID") %>% dplyr::pull(Value)
+            }
             
-            details$genotype[ii] = ifelse(details$animalID[ii] %in% wt, "WT",
-                                          ifelse(details$animalID[ii] %in% het, "HET",
-                                                 ifelse(details$animalID[ii] %in% ko, "KO",
-                                                        ifelse(details$animalID[ii] %in% ki, "KI", "No genotype"))))
-            details$protocol[ii] = details_t %>% dplyr::filter(Name == "Schedule") %>% dplyr::pull(Value)
-            details$machineID[ii] = details_t %>% dplyr::filter(Name == "MachineName") %>% dplyr::pull(Value)
-            details$sessionID[ii] = details_t %>% dplyr::filter(Name == "SessionId") %>% dplyr::pull(Value)
-            details$fileName[ii] = files[ii]
-            details$date[ii] = details_t %>% dplyr::filter(Name == "Date/Time") %>% dplyr::pull(Value)
+            details$genotype[ii] <- ifelse(details$animalID[ii] %in% wt, "WT",
+                                           ifelse(details$animalID[ii] %in% het, "HET",
+                                                  ifelse(details$animalID[ii] %in% ko, "KO",
+                                                         ifelse(details$animalID[ii] %in% ki, "KI", 
+                                                                "No genotype"))))
+            details$protocol[ii] <- details_t %>% dplyr::filter(Name == "Schedule") %>% dplyr::pull(Value)
+            details$machineID[ii] <- details_t %>% dplyr::filter(Name == "MachineName") %>% dplyr::pull(Value)
+            details$sessionID[ii] <- details_t %>% dplyr::filter(Name == "SessionId") %>% dplyr::pull(Value)
+            details$fileName[ii] <- files[ii]
+            details$date[ii] <- details_t %>% dplyr::filter(Name == "Date/Time") %>% dplyr::pull(Value)
             
             ## format data item
-            data[[ii]] =
+            data[[ii]] <-
                 data_t %>%
                 dplyr::select(Evnt_Time, Evnt_Name, Item_Name, Alias_Name, Arg1_Value, Arg2_Name, Arg3_Value, Arg4_Value) %>%
                 dplyr::filter( 
-                    ## start of trial
-                    (Evnt_Name == "Condition Event" & Item_Name %in% c("Start Trial", "Start Correction Trial")) | 
-                        ## which images shown in which position 
+                    ## HABITUATION 2 : Feeder pulses
+                    Item_Name == "Feeder #1" |
+                        ## INITIAL TOUCH / MUST TOUCH / MUST INITIATE : start of trial
+                        Item_Name == "Display Image" |
+                        ## INITIAL TOUCH : end of trial (but between "Start ITI" and "Display Image" still activity possible)
+                        Item_Name == "Start ITI" |
+                        ## INITIAL TOUCH / MUST TOUCH / MUST INITIATE : Blank and Image Touches
+                        Item_name %in% c("Image Touched", "Blank Image Touched") |
+                        ## PUNISH INCORRECT / EXPERIMENT : start of trial
+                        (Evnt_Name == "Condition Event" & Item_Name %in% c("Start Trial", "Start Correction Trial")) | 
+                        ## EXPERIMENT : which images shown in which position
                         Alias_Name %in% c("Images", "Background") |
-                        ## images pressed at which coordinates / screen touches
-                        (Evnt_Name == "Touch Down Event" & Arg2_Name %in% c("Image 1", "Image 2", "Image 3")) | 
-                        ## trial outcome
+                        ## PUNISH INCORRECT / EXPERIMENT : trial outcome
                         (Evnt_Name == "Condition Event" & Item_Name %in% c("Correct", "Incorrect")) | 
-                        ## entries/exits reward tray
-                        (Evnt_Name %in% c("Input Transition On Event", "Input Transition Off Event") & Item_Name == "Tray #1") | 
-                        ## end of time-out period
+                        ## EXPERIMENT :end of time-out period
                         (Evnt_Name == "Condition Event" & Item_Name == "Time Out End") | 
-                        ## front/back beamcrossing
+                        ## OVERALL : images pressed at which coordinates / screen touches
+                        (Evnt_Name == "Touch Down Event" & Arg2_Name %in% c("Image 1", "Image 2", "Image 3")) | 
+                        ## OVERALL : entries/exits reward tray
+                        (Evnt_Name %in% c("Input Transition On Event", "Input Transition Off Event") & Item_Name == "Tray #1") | 
+                        ## OVERALL : front/back beamcrossing on/off
                         (Evnt_Name %in% c("Input Transition On Event", "Input Transition Off Event") & Item_Name %in% c("FIRBeam #1", "BIRBeam #1")) |
-                        ## Schedule shutdown time
+                        ## OVERALL :Schedule shutdown time
                         (Evnt_Name == "Schedule Shutdown Event") )
         }
     }

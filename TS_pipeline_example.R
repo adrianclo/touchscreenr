@@ -1,14 +1,14 @@
 source("TS_functions_v2.R")
 
 # SETTINGS ---------------------------------------------------------------------
-filesDir <- file.path(getwd(), "pal_data")
+filesDir <- file.path(getwd(), "other_pal")
 
 wt <- c("341-blue")
 ko <- c("341-red")
 ki <- NULL
 het <- NULL
 
-exportName <- "sample-pal-data"
+exportName <- "other-pal-data"
 
 # WHEN ALL SETTINGS ARE FILLED IN, PRESS "SOURCE"
 # A BEEP WILL SIGNAL WHEN THE PROCESSING IS FINISHED
